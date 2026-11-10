@@ -1,0 +1,314 @@
+{
+  "date": "2026-11-09",
+  "command": "mvn -s .mvn/settings.xml -Pfull-media verify",
+  "tests": 49,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "campus.BootstrapAcceptanceTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "12.455",
+      "cases": [
+        {
+          "name": "presetAdminExistsBeforePublicRegistrationCanReachTheServer",
+          "time": "12.434",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "campus.CrossModuleAcceptanceTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "12.187",
+      "cases": [
+        {
+          "name": "expiredHotSnapshotRequiresExplicitRefresh",
+          "time": "4.695",
+          "result": "PASS"
+        },
+        {
+          "name": "authorCanDeletePendingAndRejectedAndAdminListNeverReturnsDeleted",
+          "time": "1.031",
+          "result": "PASS"
+        },
+        {
+          "name": "commentPaginationBoundariesAndAdminPostCascadePreserveEachOwnersHistory",
+          "time": "1.597",
+          "result": "PASS"
+        },
+        {
+          "name": "bindingAndUnknownRouteErrorsUseStableCodes",
+          "time": "0.575",
+          "result": "PASS"
+        },
+        {
+          "name": "allEditableStatesReReviewKeepHistoryAndDiscardOnlyCurrentReason",
+          "time": "1.667",
+          "result": "PASS"
+        },
+        {
+          "name": "concurrentLikesAndPersonalOrderingReflectCompletedActions",
+          "time": "1.551",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "campus.ForumHttpTest",
+      "tests": "24",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "14.617",
+      "cases": [
+        {
+          "name": "approvalPublishesTextForVisitors",
+          "time": "0.915",
+          "result": "PASS"
+        },
+        {
+          "name": "reviewValidationAndRepeatedVerdictsPreserveOriginalResult",
+          "time": "0.908",
+          "result": "PASS"
+        },
+        {
+          "name": "inputCannotGrantAdminOrOverridePostIdentityOrState",
+          "time": "0.891",
+          "result": "PASS"
+        },
+        {
+          "name": "missingAndMalformedBodiesAndReviewFieldsAreRejected",
+          "time": "0.87",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationReturnsOrdinaryUserAndDefaultAvatar",
+          "time": "0.267",
+          "result": "PASS"
+        },
+        {
+          "name": "duplicateUsernameIsCaseInsensitiveAndLoginAcceptsOriginalPassword",
+          "time": "0.821",
+          "result": "PASS"
+        },
+        {
+          "name": "administratorCanVerifyAllRealDependencies",
+          "time": "0.793",
+          "result": "PASS"
+        },
+        {
+          "name": "rejectionReasonIsVisibleOnlyToAuthorAndAdmin",
+          "time": "1.364",
+          "result": "PASS"
+        },
+        {
+          "name": "textSubmissionIsPendingAndHiddenFromVisitors",
+          "time": "0.564",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationRejectsOutOfRangeInput(String, int)[1]",
+          "time": "0.027",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationRejectsOutOfRangeInput(String, int)[2]",
+          "time": "0.006",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationRejectsOutOfRangeInput(String, int)[3]",
+          "time": "0.007",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationRejectsOutOfRangeInput(String, int)[4]",
+          "time": "0.007",
+          "result": "PASS"
+        },
+        {
+          "name": "registrationRejectsOutOfRangeInput(String, int)[5]",
+          "time": "0.006",
+          "result": "PASS"
+        },
+        {
+          "name": "loginIssuesFixedLifetimeTokenAndRejectsWrongPassword",
+          "time": "0.55",
+          "result": "PASS"
+        },
+        {
+          "name": "successfulReadsNeverExtendSessionExpiry",
+          "time": "0.559",
+          "result": "PASS"
+        },
+        {
+          "name": "listsFilterStateAndPaginateWithStableOrder",
+          "time": "0.868",
+          "result": "PASS"
+        },
+        {
+          "name": "equalPublicationTimesUseIdOrderAndApproveRetryKeepsFirstTime",
+          "time": "0.872",
+          "result": "PASS"
+        },
+        {
+          "name": "concurrentOpposingReviewsHaveExactlyOneWinner",
+          "time": "0.84",
+          "result": "PASS"
+        },
+        {
+          "name": "textBoundsAreEnforced(String, int)[1]",
+          "time": "0.527",
+          "result": "PASS"
+        },
+        {
+          "name": "textBoundsAreEnforced(String, int)[2]",
+          "time": "0.54",
+          "result": "PASS"
+        },
+        {
+          "name": "textBoundsAreEnforced(String, int)[3]",
+          "time": "0.57",
+          "result": "PASS"
+        },
+        {
+          "name": "textBoundsAreEnforced(String, int)[4]",
+          "time": "0.53",
+          "result": "PASS"
+        },
+        {
+          "name": "maximumTextAndLiteralMarkupRoundTripWithoutFormatting",
+          "time": "0.556",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "campus.MediaFlowsTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "65.244",
+      "cases": [
+        {
+          "name": "avatarReplacementIsImmediatePublicAndOldResourceCannotBeReused",
+          "time": "0.896",
+          "result": "PASS"
+        },
+        {
+          "name": "imageTypeIsValidatedFromContainerNotFilenameOrVideoCodec",
+          "time": "0.733",
+          "result": "PASS"
+        },
+        {
+          "name": "failedAndRetiredResourcesArePhysicallyReclaimedOnlyAfterTheirDeadline",
+          "time": "3.012",
+          "result": "PASS"
+        },
+        {
+          "name": "processingHasNoTemporaryExpiryAndDatabaseJobRecoversAfterRabbitRestart",
+          "time": "30.253",
+          "result": "PASS"
+        },
+        {
+          "name": "chunkedVideoResumesProcessesThroughRabbitAndGuardsPlaylistAndSegments",
+          "time": "2.147",
+          "result": "PASS"
+        },
+        {
+          "name": "expiryCleanupHonorsSuccessfulProgressAndDoesNotRemoveBoundResources",
+          "time": "1.697",
+          "result": "PASS"
+        },
+        {
+          "name": "actualOneGiBVideoUploadsWithBoundedChunksAndIsCleanedAfterExpiry",
+          "time": "12.985",
+          "result": "PASS"
+        },
+        {
+          "name": "imageUploadBindsAtomicallyAndAllStatesEnforceDirectAccess",
+          "time": "1.585",
+          "result": "PASS"
+        },
+        {
+          "name": "videoDurationAndByteBoundariesAndFailedProcessingAreObservable",
+          "time": "6.938",
+          "result": "PASS"
+        },
+        {
+          "name": "imageFormatsSizeLimitsAndNineImageBindingAreEnforced",
+          "time": "3.509",
+          "result": "PASS"
+        },
+        {
+          "name": "multipleVideoPartsAllowOutOfOrderResumeAndDuplicateSuccessfulParts",
+          "time": "1.471",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "name": "campus.RemainingFlowsTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "13.639",
+      "cases": [
+        {
+          "name": "unicodeWhitespaceIsNotValidPostContent",
+          "time": "0.601",
+          "result": "PASS"
+        },
+        {
+          "name": "interactionsAreIdempotentImmediateAndSurviveReReview",
+          "time": "1.429",
+          "result": "PASS"
+        },
+        {
+          "name": "nicknameChangeAppearsInAuthenticatedSingleBatchAndPublicAuthors",
+          "time": "0.853",
+          "result": "PASS"
+        },
+        {
+          "name": "commentsFlattenRepliesCascadeDeleteAndPreserveOnlyOwnHistory",
+          "time": "1.696",
+          "result": "PASS"
+        },
+        {
+          "name": "editResubmitsLatestRevisionAndDeleteHidesFromEveryone",
+          "time": "1.394",
+          "result": "PASS"
+        },
+        {
+          "name": "batchOneSpecBoundaryAudit",
+          "time": "0.885",
+          "result": "PASS"
+        },
+        {
+          "name": "hotFeedFreezesOrderRefreshesAndFiltersHiddenPostsImmediately",
+          "time": "6.164",
+          "result": "PASS"
+        }
+      ]
+    }
+  ],
+  "packagedJar": {
+    "result": "PASS",
+    "checks": [
+      "fresh openGauss schema, registration, Redis login",
+      "image, public avatar, comments/history, counters, snapshot filtering, re-review and deletion",
+      "real RabbitMQ video processing, public HLS decode, Range and dependency health",
+      "JAR restart preserves database posts, Redis credential, current avatar and private storage"
+    ]
+  }
+}

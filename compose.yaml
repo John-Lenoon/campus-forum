@@ -1,0 +1,43 @@
+name: campus-forum
+services:
+  opengauss:
+    image: opengauss/opengauss-server:7.0.0-RC3.B025
+    environment:
+      GS_PASSWORD: ${DB_PASSWORD:-Forum_local_123!}
+      GS_USERNAME: forum
+      GS_DB: forum
+    ports: ["127.0.0.1:25432:5432"]
+    volumes: ["opengauss-data:/var/lib/opengauss"]
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "su - omm -c 'gsql -d forum -c \"SELECT 1\"' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:26479:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: forum
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:-Forum_local_123!}
+    ports: ["127.0.0.1:25679:5672", "127.0.0.1:25680:15672"]
+    volumes: ["rabbit-data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  opengauss-data:
+  redis-data:
+  rabbit-data:

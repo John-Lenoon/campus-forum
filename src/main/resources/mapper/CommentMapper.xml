@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="campus.mapper.CommentMapper">
+  <select id="findReplyTarget" resultType="campus.entity.CommentEntity">
+    SELECT * FROM forum_comments WHERE id=#{id}
+  </select>
+
+  <select id="countReplies" resultType="long">
+    SELECT COUNT(*)
+    FROM forum_comments
+    WHERE root_id=#{id} AND deleted_at IS NULL
+  </select>
+
+  <select id="pageThread" resultType="campus.entity.CommentEntity">
+    SELECT *
+    FROM forum_comments
+    WHERE <choose><when test="rootId == null">post_id=#{postId} AND root_id IS NULL</when><otherwise>root_id=#{rootId}</otherwise></choose> AND deleted_at IS NULL
+    ORDER BY <choose><when test="order == 'desc'">created_at DESC,id DESC</when><otherwise>created_at ASC,id ASC</otherwise></choose>
+    LIMIT #{size}
+    OFFSET #{offset}
+  </select>
+
+  <select id="countThread" resultType="long">
+    SELECT COUNT(*)
+    FROM forum_comments
+    WHERE <choose><when test="rootId == null">post_id=#{postId} AND root_id IS NULL</when><otherwise>root_id=#{rootId}</otherwise></choose> AND deleted_at IS NULL
+  </select>
+
+  <select id="pageHistory" resultType="campus.entity.CommentEntity">
+    SELECT *
+    FROM forum_comments
+    WHERE user_id=#{userId}
+    ORDER BY created_at DESC,id DESC
+    LIMIT #{size}
+    OFFSET #{offset}
+  </select>
+
+  <select id="countHistory" resultType="long">
+    SELECT COUNT(*)
+    FROM forum_comments
+    WHERE user_id=#{userId}
+  </select>
+
+  <update id="deleteThread">
+    UPDATE forum_comments
+    SET deleted_at=COALESCE(deleted_at,#{deletedAt})
+    WHERE id=#{id} OR root_id=#{id}
+  </update>
+
+  <update id="deleteReply">
+    UPDATE forum_comments
+    SET deleted_at=COALESCE(deleted_at,#{deletedAt})
+    WHERE id=#{id}
+  </update>
+
+  <update id="deleteForPost">
+    UPDATE forum_comments
+    SET deleted_at=COALESCE(deleted_at,#{deletedAt})
+    WHERE post_id=#{postId}
+  </update>
+</mapper>

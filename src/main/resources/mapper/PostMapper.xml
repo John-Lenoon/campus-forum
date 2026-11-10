@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="campus.mapper.PostMapper">
+  <select id="findView" resultType="campus.entity.PostView">
+    SELECT p.*,u.nickname,u.avatar_resource_id,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='likes') AS like_count,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='favorites') AS favorite_count
+    FROM forum_posts p
+    JOIN forum_users u ON u.id=p.author_id
+    WHERE p.id=#{id} AND p.deleted_at IS NULL
+  </select>
+
+  <select id="lockActive" resultType="campus.entity.PostEntity">
+    SELECT *
+    FROM forum_posts
+    WHERE id=#{id} AND deleted_at IS NULL FOR UPDATE
+  </select>
+
+  <select id="countVisible" resultType="long">
+    SELECT COUNT(*)
+    FROM forum_posts
+    WHERE deleted_at IS NULL <if test="status != null">AND status=#{status}</if>
+  </select>
+
+  <select id="pageViews" resultType="campus.entity.PostView">
+    SELECT p.*,u.nickname,u.avatar_resource_id,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='likes') AS like_count,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='favorites') AS favorite_count
+    FROM forum_posts p
+    JOIN forum_users u ON u.id=p.author_id
+    WHERE p.deleted_at IS NULL <if test="status != null">AND p.status=#{status}</if>
+    ORDER BY <choose><when test="admin">p.submitted_at</when><otherwise>p.first_published_at</otherwise></choose> DESC,p.id DESC
+    LIMIT #{size}
+    OFFSET #{offset}
+  </select>
+
+  <update id="review">
+    UPDATE forum_posts
+    SET status=#{status},
+    first_published_at=CASE WHEN #{status}='PUBLISHED' THEN COALESCE(first_published_at,#{publishedAt}) ELSE first_published_at END,
+    rejection_reason=#{reason},reviewed_by=#{reviewerId},reviewed_at=#{reviewedAt}
+    WHERE id=#{id}
+  </update>
+
+  <update id="edit">
+    UPDATE forum_posts
+    SET title=#{title},body=#{body},revision=revision+1,status='PENDING',submitted_at=#{submittedAt},rejection_reason=NULL,reviewed_by=NULL,reviewed_at=NULL
+    WHERE id=#{id}
+  </update>
+
+  <update id="markDeleted">
+    UPDATE forum_posts
+    SET deleted_at=#{deletedAt}
+    WHERE id=#{id}
+  </update>
+
+  <select id="rankPublished" resultType="string">
+    SELECT p.id
+    FROM forum_posts p
+    LEFT JOIN forum_interactions i ON i.post_id=p.id
+    WHERE p.status='PUBLISHED' AND p.deleted_at IS NULL
+    GROUP BY p.id,p.first_published_at
+    ORDER BY COALESCE(SUM(CASE WHEN i.kind='likes' THEN 1 WHEN i.kind='favorites' THEN 2 ELSE 0 END),0) DESC,p.first_published_at DESC,p.id DESC
+  </select>
+</mapper>

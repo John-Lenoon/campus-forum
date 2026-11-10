@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="campus.mapper.ResourceMapper">
+  <select id="lockById" resultType="campus.entity.ResourceEntity">
+    SELECT *
+    FROM forum_resources
+    WHERE id=#{id} FOR UPDATE
+  </select>
+
+  <select id="activePostIds" resultType="string">
+    SELECT id
+    FROM forum_resources
+    WHERE post_id=#{postId} AND retired_at IS NULL
+  </select>
+
+  <update id="retire">
+    UPDATE forum_resources
+    SET retired_at=#{retiredAt}
+    WHERE id=#{id}
+  </update>
+
+  <update id="bindPost">
+    UPDATE forum_resources
+    SET post_id=#{postId},ever_bound=TRUE,expires_at=NULL
+    WHERE id=#{id}
+  </update>
+
+  <select id="findAttachments" resultType="campus.entity.ResourceEntity">
+    SELECT *
+    FROM forum_resources
+    WHERE post_id=#{postId} AND retired_at IS NULL
+    ORDER BY created_at,id
+  </select>
+
+  <update id="retirePost">
+    UPDATE forum_resources
+    SET retired_at=COALESCE(retired_at,#{retiredAt})
+    WHERE post_id=#{postId}
+  </update>
+
+  <update id="bindAvatar">
+    UPDATE forum_resources
+    SET avatar_user_id=#{userId},ever_bound=TRUE,expires_at=NULL
+    WHERE id=#{id}
+  </update>
+
+  <select id="lockExpired" resultType="string">
+    SELECT id
+    FROM forum_resources
+    WHERE state&lt;&gt;'EXPIRED' AND ((retired_at IS NOT NULL AND retired_at&lt;=#{retiredBefore}) OR (post_id IS NULL AND avatar_user_id IS NULL AND expires_at IS NOT NULL AND expires_at&lt;=#{now})) FOR UPDATE
+  </select>
+
+  <update id="markExpired">
+    UPDATE forum_resources
+    SET state='EXPIRED'
+    WHERE id=#{id}
+  </update>
+
+  <update id="extendUpload">
+    UPDATE forum_resources
+    SET expires_at=#{expiresAt}
+    WHERE id=#{id}
+  </update>
+
+  <update id="beginProcessing">
+    UPDATE forum_resources
+    SET state='PROCESSING',expires_at=NULL,processing_claim=NULL,claim_until=NULL
+    WHERE id=#{id}
+  </update>
+
+  <select id="recoverableIds" resultType="string">
+    SELECT id
+    FROM forum_resources
+    WHERE state='PROCESSING' AND (claim_until IS NULL OR claim_until&lt;#{now})
+  </select>
+
+  <update id="claimProcessing">
+    UPDATE forum_resources
+    SET processing_claim=#{claim},claim_until=#{claimUntil}
+    WHERE id=#{id} AND state='PROCESSING' AND (claim_until IS NULL OR claim_until&lt;#{now})
+  </update>
+
+  <update id="finishProcessing">
+    UPDATE forum_resources
+    SET state='READY',duration_seconds=#{duration},expires_at=#{expiresAt},claim_until=NULL
+    WHERE id=#{id} AND processing_claim=#{claim}
+  </update>
+
+  <update id="failProcessing">
+    UPDATE forum_resources
+    SET state='FAILED',error_code=#{code},expires_at=#{expiresAt},claim_until=NULL
+    WHERE id=#{id} AND processing_claim=#{claim}
+  </update>
+</mapper>

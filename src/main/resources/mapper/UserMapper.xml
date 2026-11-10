@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="campus.mapper.UserMapper">
+  <select id="findByUsername" resultType="campus.entity.UserEntity">
+    SELECT *
+    FROM forum_users
+    WHERE username_key=#{usernameKey}
+  </select>
+
+  <select id="lockById" resultType="campus.entity.UserEntity">
+    SELECT *
+    FROM forum_users
+    WHERE id=#{id} FOR UPDATE
+  </select>
+
+  <update id="updateNickname">
+    UPDATE forum_users
+    SET nickname=#{nickname}
+    WHERE id=#{id}
+  </update>
+
+  <update id="updateAvatar">
+    UPDATE forum_users
+    SET avatar_resource_id=#{resourceId}
+    WHERE id=#{id}
+  </update>
+</mapper>
