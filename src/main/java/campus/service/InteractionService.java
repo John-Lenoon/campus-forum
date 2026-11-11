@@ -4,6 +4,7 @@ import static campus.exception.BusinessException.fail;
 
 import campus.dto.CurrentUser;
 import campus.entity.InteractionEntity;
+import campus.exception.BusinessException;
 import campus.mapper.InteractionMapper;
 import campus.mapper.PostMapper;
 
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
@@ -51,7 +53,14 @@ public class InteractionService {
         long total = interactionMapper.countPublished(user.id(), kind);
         var ids =
                 interactionMapper.pagePublishedIds(user.id(), kind, size, ((long) page - 1) * size);
-        var items = ids.stream().map(id -> posts.detail(id, user)).toList();
+        var items = new ArrayList<Map<String, Object>>();
+        for (String id : ids) {
+            try {
+                items.add(posts.publishedDetail(id, user));
+            } catch (BusinessException e) {
+                if (e.status() != 404) throw e;
+            }
+        }
         return Map.of("items", items, "total", total, "page", page, "size", size);
     }
 

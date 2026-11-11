@@ -93,11 +93,19 @@ public class PostService {
     }
 
     public Map<String, Object> detail(String id, CurrentUser user) {
+        return detail(id, user, false);
+    }
+
+    public Map<String, Object> publishedDetail(String id, CurrentUser user) {
+        return detail(id, user, true);
+    }
+
+    private Map<String, Object> detail(String id, CurrentUser user, boolean publishedOnly) {
         var rows = postMapper.findView(id);
         if (rows.isEmpty()) throw fail(404, "NOT_FOUND");
         var row = rows.getFirst();
         if (!"PUBLISHED".equals(row.getStatus())
-                && (user == null
+                && (publishedOnly || user == null
                         || (!"ADMIN".equals(user.role()) && !user.id().equals(row.getAuthorId()))))
             throw fail(404, "NOT_FOUND");
         var p = view(row);

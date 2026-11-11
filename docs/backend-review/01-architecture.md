@@ -126,6 +126,8 @@ flowchart TD
 
 ### ARCH-02｜P2｜已确认缺陷：图片异常补偿跨越已提交的数据库写入
 
+**2026-11-10 整改状态：已修复并通过本批 87 项完整回归。** 真实数据库及文件故障验证、提交不确定性、过期回收和清理竞争详见 [03-arch02-verification.md](03-arch02-verification.md)。以下原始发现及当时验证边界作为历史记录保留。
+
 - **位置**：[MediaService.java](../../src/main/java/campus/service/MediaService.java) 第 63—79、120—130、209—220 行；[ResourceStorage.java](../../src/main/java/campus/infrastructure/ResourceStorage.java) 第 35—40、49—58 行；[MediaController.java](../../src/main/java/campus/controller/MediaController.java) 第 68—74 行。
 - **证据**：image 没有事务，Controller 直接调用；insertImage 的资源 INSERT 在返回前已经提交，随后第 72 行 info 又查询数据库。整个区间的 RuntimeException 均由第 76—78 行捕获，补偿仅 removeDirectory，没有回滚或更改元数据状态。
 - **依赖证据**：核对本机 MyBatis-Spring 3.0.6 的 SqlSessionTemplate$SqlSessionInterceptor 字节码：非 Spring 事务的 Mapper 调用完成后执行 commit(true)，随后关闭会话。不能把后续 info 失败理解为此前 INSERT 自动回滚。
@@ -136,6 +138,8 @@ flowchart TD
 
 ### ARCH-03｜P2｜待验证风险：线程中断后的媒体子进程生命周期
 
+**2026-11-11 整改状态：真实进程测试复现后已修复，定向及媒体回归通过。** 详见 [04-arch03-verification.md](04-arch03-verification.md)；以下原始风险记录保留。
+
 - **位置**：[MediaTools.java](../../src/main/java/campus/infrastructure/MediaTools.java) 第 61—75、175—184 行；[VideoService.java](../../src/main/java/campus/service/VideoService.java) 第 166—179 行。
 - **证据**：正常超时分支会 destroyForcibly；waitFor 抛 InterruptedException 时没有 finally 终止 process。probe 只恢复中断标记并抛业务异常；hls 将中断上抛，VideoService 将资源记 FAILED，并恢复线程中断状态。
 - **触发条件**：FFprobe／FFmpeg 已启动，等待线程在执行期间被中断，且宿主没有同时终止子进程。具体关闭／中断路径是否会在当前运行方式发生，尚未复现。
@@ -144,6 +148,8 @@ flowchart TD
 - **尚需证据**：正在转码时中断等待线程，观察子进程是否退出、状态是否稳定、是否仍写文件。本轮未执行，暂不升级为已复现故障。
 
 ### ARCH-04｜P2｜可读性建议：说明资源写入辅助方法的事务前置条件
+
+**2026-11-11 处理状态：已在辅助方法处说明调用者事务和锁顺序。** 未新增接口或抽象层；下方保留原审查记录。
 
 - **位置**：[MediaService.java](../../src/main/java/campus/service/MediaService.java) 第 144—172、178—198 行；[PostService.java](../../src/main/java/campus/service/PostService.java) 第 83—92、176—200 行；[UserService.java](../../src/main/java/campus/service/UserService.java) 第 32—41 行。
 - **证据**：bindPost、retirePost、bindAvatar 自身不声明事务，当前调用点分别处于 PostService／UserService 的事务内，所以现有调用链能够共享事务。方法处未明确必须具有外层事务、先锁定帖子／用户等前提。

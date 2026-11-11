@@ -14,6 +14,8 @@ import campus.mapper.UserMapper;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -36,6 +38,7 @@ public class MediaService {
     private final Clock clock;
     private final MediaTools tools;
     private final ResourceStorage storage;
+    private final TransactionTemplate transactions;
 
     public MediaService(
             ResourceMapper resourceMapper,
@@ -44,7 +47,8 @@ public class MediaService {
             ChunkMapper chunkMapper,
             Clock clock,
             MediaTools tools,
-            ResourceStorage storage) {
+            ResourceStorage storage,
+            PlatformTransactionManager transactionManager) {
         this.resourceMapper = resourceMapper;
         this.postMapper = postMapper;
         this.userMapper = userMapper;
@@ -52,6 +56,7 @@ public class MediaService {
         this.clock = clock;
         this.tools = tools;
         this.storage = storage;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     ResourceEntity row(String id) {
@@ -60,23 +65,43 @@ public class MediaService {
         return row;
     }
 
+    /** HTTP upload entry: callers must not wrap it in an outer database transaction; the
+     * reservation must commit before the file is created. */
     public Map<String, Object> image(CurrentUser user, String purpose, MultipartFile file) {
         if (!Set.of("POST", "AVATAR").contains(purpose)) throw fail(400, "INVALID_PURPOSE");
         long max = (purpose.equals("AVATAR") ? 5L : 10L) * 1024 * 1024;
         if (file.isEmpty() || file.getSize() > max) throw fail(400, "INVALID_IMAGE_SIZE");
         String id = UUID.randomUUID().toString();
-        try {
-            Path original = storage.storeImage(id, file);
-            String mime = tools.image(original, purpose.equals("AVATAR"));
-            insertImage(id, user.id(), purpose, mime, file.getSize());
-            return info(id, user);
-        } catch (IOException e) {
-            storage.removeDirectory(id);
-            throw fail(503, "STORAGE_UNAVAILABLE");
-        } catch (RuntimeException e) {
-            storage.removeDirectory(id);
-            throw e;
-        }
+        // Register a recoverable, non-ready resource before creating any persistent file.
+        var resource = insertImage(id, user.id(), purpose, file.getSize());
+        return transactions.execute(status -> {
+            var rows = resourceMapper.lockById(id);
+            if (rows.isEmpty() || !"UPLOADING".equals(rows.getFirst().getState())
+                    || clock.millis() >= rows.getFirst().getExpiresAt())
+                throw fail(410, "RESOURCE_EXPIRED");
+            String mime;
+            try {
+                Path original = storage.storeImage(id, file);
+                mime = tools.image(original, purpose.equals("AVATAR"));
+            } catch (IOException e) {
+                storage.removeDirectory(id);
+                throw fail(503, "STORAGE_UNAVAILABLE");
+            } catch (RuntimeException e) {
+                storage.removeDirectory(id);
+                throw e;
+            }
+            long now = clock.millis();
+            if (now >= rows.getFirst().getExpiresAt()) {
+                storage.removeDirectory(id);
+                throw fail(410, "RESOURCE_EXPIRED");
+            }
+            long expiry = now + 86400000;
+            if (resourceMapper.readyImage(id, mime, expiry) != 1) throw fail(409, "RESOURCE_NOT_READY");
+            resource.setState("READY");
+            resource.setMime(mime);
+            resource.setExpiresAt(expiry);
+            return view(resource);
+        });
     }
 
     public void visible(ResourceEntity resource, CurrentUser user) {
@@ -95,6 +120,9 @@ public class MediaService {
             if (resource.getExpiresAt() != null && clock.millis() >= resource.getExpiresAt())
                 throw fail(410, "RESOURCE_EXPIRED");
         }
+        // An image reservation is internal until its validated metadata and file are committed.
+        if ("IMAGE".equals(resource.getKind()) && "UPLOADING".equals(resource.getState()))
+            throw fail(404, "NOT_FOUND");
     }
 
     public Map<String, Object> view(ResourceEntity resource) {
@@ -141,6 +169,11 @@ public class MediaService {
         return storage.existingFile(resource.getId(), filename);
     }
 
+    /**
+     * Called within the post creation or edit transaction. For an existing post, the caller must
+     * lock the post first; requested resources are then locked in ID order before any binding or
+     * retirement is committed.
+     */
     public void bindPost(CurrentUser owner, String postId, List<String> requested) {
         List<String> ids = requested == null ? List.of() : requested;
         if (ids.size() > 9
@@ -175,10 +208,15 @@ public class MediaService {
         return resourceMapper.findAttachments(id).stream().map(this::view).toList();
     }
 
+    /** Called within post deletion, after the caller locks the post and in the same transaction. */
     public void retirePost(String id) {
         resourceMapper.retirePost(clock.millis(), id);
     }
 
+    /**
+     * Called within the profile update transaction. Lock the user before the target resource so
+     * avatar retirement, binding and the profile update commit together.
+     */
     public void bindAvatar(CurrentUser user, String id) {
         var current = userMapper.lockById(user.id());
         var records = resourceMapper.lockById(id);
@@ -206,18 +244,18 @@ public class MediaService {
         return new MediaFile(path, mime);
     }
 
-    private void insertImage(String id, String ownerId, String purpose, String mime, long size) {
+    private ResourceEntity insertImage(String id, String ownerId, String purpose, long size) {
         var resource = new ResourceEntity();
         resource.setId(id);
         resource.setOwnerId(ownerId);
         resource.setPurpose(purpose);
         resource.setKind("IMAGE");
-        resource.setState("READY");
-        resource.setMime(mime);
+        resource.setState("UPLOADING");
         resource.setSizeBytes(size);
         resource.setCreatedAt(clock.millis());
         resource.setExpiresAt(clock.millis() + 86400000);
         resourceMapper.insert(resource);
+        return resource;
     }
 
     @Transactional

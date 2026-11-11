@@ -169,13 +169,16 @@ public class VideoService {
         int updated =
                 resourceMapper.claimProcessing(claim, clock.millis() + 7500000, id, clock.millis());
         if (updated == 0) return;
+        double duration;
         try {
-            double duration = files.createPlayback(id, claim);
-            resourceMapper.finishProcessing(duration, clock.millis() + 86400000, id, claim);
+            duration = files.createPlayback(id, claim);
         } catch (Exception e) {
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             String code = e instanceof BusinessException f ? f.code() : "PROCESSING_FAILED";
             resourceMapper.failProcessing(code, clock.millis() + 86400000, id, claim);
+            return;
         }
+        // A database error can arrive after READY committed; do not turn it into a media failure.
+        resourceMapper.finishProcessing(duration, clock.millis() + 86400000, id, claim);
     }
 }

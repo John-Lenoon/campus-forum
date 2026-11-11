@@ -2,6 +2,8 @@
 
 完整 API 以 [api-contract.md](api-contract.md) 为准；差异及关闭证据见 [api-gap-analysis.md](api-gap-analysis.md)、[contract-acceptance.md](contract-acceptance.md)。已落实 DEC-057/058/059/061；业务基线、DEC-049、整体验收门槛及技术栈保持不变。本文只解释实现，不把技术取值写成用户逐项确认。
 
+交付前整改的当前证据见 [后端审查记录](backend-review/01-architecture.md)；最终回归及独立 JAR 的验收结论见 [本次最终验收](backend-review/06-final-acceptance.md)，历史结果不自动覆盖后续修改。
+
 ## 1. 技术与一致性
 
 - Java 21、Spring Boot 3.5.16、Maven、Spring MVC、MyBatis-Plus 3.5.18、真实 openGauss、Redis、RabbitMQ。
@@ -16,6 +18,9 @@
 - 评论删除仅保留本人历史例外；不得通过管理员或原讨论接口读取删除正文。
 - 统计从唯一互动关系计算，不使用延迟计数缓存；操作成功后立即可读。
 - 图片及视频文件位于 MEDIA_ROOT，未放入静态公开目录。每次原文件、清单、片段请求均查当前权限，响应 no-store。
+- 图片先登记可过期的内部非 READY 记录，再在资源锁事务内写文件、校验并提交 READY；提交结果不确定时保留有期限的记录和文件。内部预留不作为已完成资源对外读取。
+- FFmpeg／FFprobe 等待被中断或超时时，适配器终止子进程并等待退出。视频 READY 写入异常不作为媒体处理失败回退，失败状态更新仅适用于仍在处理的同一租约。
+- 本人互动列表在读取候选 ID 后再次检查当前发布状态；并发下架的条目被过滤，不返回待审内容或导致整页 404。
 - 昵称、标题、驳回原因在 openGauss A 模式使用 VARCHAR(n CHAR)，避免按字节误拒中文及 emoji。
 
 ### 1.1 代码分层与数据库访问

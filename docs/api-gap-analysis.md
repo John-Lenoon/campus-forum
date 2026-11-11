@@ -2,6 +2,8 @@
 
 日期：2026-11-10。基准：[业务 Spec](requirements.md)、DEC-001—061、[API 契约](api-contract.md)。
 
+交付前复核及后续并发修复见 [关键路径记录](backend-review/05-critical-path.md)，最终代码的完整回归与 JAR 重启见 [本次最终验收](backend-review/06-final-acceptance.md)。以下为契约落地阶段的历史事实。
+
 ## 落地执行状态（DEC-060）
 
 - DIFF-01、DIFF-02、MISS-01 已完成修复；本次全量60项通过（失败／错误／跳过均为0），日志 target/contract-primary-full.log。

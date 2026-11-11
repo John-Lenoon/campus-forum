@@ -61,9 +61,14 @@ public class MediaTools {
         try {
             var process =
                     new ProcessBuilder(args).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                throw fail(400, "INVALID_MEDIA");
+            try {
+                if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                    terminate(process);
+                    throw fail(400, "INVALID_MEDIA");
+                }
+            } catch (InterruptedException e) {
+                terminate(process);
+                throw e;
             }
             byte[] output = process.getInputStream().readNBytes(65536);
             if (process.exitValue() != 0) throw fail(400, "INVALID_MEDIA");
@@ -177,9 +182,14 @@ public class MediaTools {
                         .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                         .redirectError(ProcessBuilder.Redirect.DISCARD)
                         .start();
-        if (!process.waitFor(2, TimeUnit.HOURS)) {
-            process.destroyForcibly();
-            throw fail(400, "PROCESSING_TIMEOUT");
+        try {
+            if (!process.waitFor(2, TimeUnit.HOURS)) {
+                terminate(process);
+                throw fail(400, "PROCESSING_TIMEOUT");
+            }
+        } catch (InterruptedException e) {
+            terminate(process);
+            throw e;
         }
         if (process.exitValue() != 0) throw fail(400, "PROCESSING_FAILED");
         var manifest = Files.readString(destination.resolve("index.m3u8"));
@@ -194,5 +204,21 @@ public class MediaTools {
                 segments++;
             }
         if (segments == 0) throw fail(400, "PROCESSING_FAILED");
+    }
+
+    private static void terminate(Process process) {
+        process.destroyForcibly();
+        boolean interrupted = false;
+        try {
+            while (process.isAlive()) {
+                try {
+                    process.waitFor();
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt();
+        }
     }
 }

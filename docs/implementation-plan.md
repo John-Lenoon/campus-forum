@@ -2,6 +2,8 @@
 
 授权：用户要求自动完成剩余后端，每批通过后继续，最后按 DEC-049 整体验收。
 
+交付前整改（2026-11-11）：ARCH-01/02/03 已完成定向验证，ARCH-04 已说明事务前置条件；关键路径新增的互动列表下架竞争与视频完成回执异常问题已完成红测、修复及定向回归。记录见 [架构审查](backend-review/01-architecture.md)、[图片一致性](backend-review/03-arch02-verification.md)、[进程中断](backend-review/04-arch03-verification.md) 和 [关键路径](backend-review/05-critical-path.md)。最终代码 clean full-media 91 项、隔离新库 JAR 冒烟及重启均通过，DEC-049 审核见 [本次最终验收](backend-review/06-final-acceptance.md)；下方早期结果仅为历史记录。
+
 当前阶段（DEC-060，2026-11-10）：契约落地已完成；DIFF-01/02、MISS-01关闭后自动完成后续校验批次，最终clean完整74项及独立JAR／重启通过。下文历史“通过”不替代本次验证；未新增产品模块或变更技术栈。
 
 ## API 契约补齐及后续修复

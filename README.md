@@ -132,7 +132,7 @@ Invoke-RestMethod http://127.0.0.1:8080/api/v1/posts -Method Post -Headers $head
 - [业务需求及 DEC-049 验收门槛](docs/requirements.md)
 - [现行完整接口与技术设计](docs/backend-design.md)
 - [实施计划及批次结果](docs/implementation-plan.md)
-- [整体验收结果与未执行项](docs/final-acceptance.md)
+- [本次整体验收结果与未执行项](docs/backend-review/06-final-acceptance.md)；[历史整体验收](docs/final-acceptance.md)
 - [决策及授权内实施决定](docs/decision-log.md)
 - [原问题处理状态](docs/open-questions.md)
 - [第一批历史验收基线](docs/batch-1-acceptance.md)

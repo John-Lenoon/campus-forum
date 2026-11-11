@@ -31,6 +31,8 @@ public interface ResourceMapper extends BaseMapper<ResourceEntity> {
 
     int extendUpload(@Param("expiresAt") long expiresAt, @Param("id") String id);
 
+    int readyImage(@Param("id") String id, @Param("mime") String mime, @Param("expiresAt") long expiresAt);
+
     int beginProcessing(@Param("id") String id);
 
     List<String> recoverableIds(@Param("now") long now);

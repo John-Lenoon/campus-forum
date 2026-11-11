@@ -68,6 +68,11 @@
     WHERE id=#{id}
   </update>
 
+  <update id="readyImage">
+    UPDATE forum_resources SET state='READY',mime=#{mime},expires_at=#{expiresAt}
+    WHERE id=#{id} AND state='UPLOADING'
+  </update>
+
   <select id="recoverableIds" resultType="string">
     SELECT id
     FROM forum_resources
@@ -83,12 +88,12 @@
   <update id="finishProcessing">
     UPDATE forum_resources
     SET state='READY',duration_seconds=#{duration},expires_at=#{expiresAt},claim_until=NULL
-    WHERE id=#{id} AND processing_claim=#{claim}
+    WHERE id=#{id} AND state='PROCESSING' AND processing_claim=#{claim}
   </update>
 
   <update id="failProcessing">
     UPDATE forum_resources
     SET state='FAILED',error_code=#{code},expires_at=#{expiresAt},claim_until=NULL
-    WHERE id=#{id} AND processing_claim=#{claim}
+    WHERE id=#{id} AND state='PROCESSING' AND processing_claim=#{claim}
   </update>
 </mapper>
