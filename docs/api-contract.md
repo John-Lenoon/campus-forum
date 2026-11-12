@@ -95,6 +95,7 @@
 | --- | --- | --- |
 | 公开最新帖 | firstPublishedAt DESC，id DESC | BR-04、DEC-051 |
 | 管理全部状态／待审帖 | submittedAt DESC，id DESC | BR-04、DEC-033 |
+| 本人投稿 | submittedAt DESC，id DESC | BR-47；沿用管理列表排序的契约实施设计 |
 | 本人点赞／收藏 | 本次关系建立时间 DESC，postId DESC；取消重建使用新时间 | IMPL-010、BR-24 列表 |
 | 根评论／每串回复 | createdAt、id 同方向；默认 ASC，可选 DESC；分别分页 | BR-14、IMPL-010 |
 | 本人评论历史 | 原 createdAt DESC，id DESC | BR-22、IMPL-010 |
@@ -318,6 +319,15 @@ PublicUser 不含 username、role、密码、密码哈希或 token（B：BR-45�
 - 成功后公共／管理／本人互动列表与旧热榜过滤该帖；原帖子、讨论和全部附件对所有角色禁读；本人评论历史例外保留。
 - 重复请求不恢复或重复产生副作用；已删除时 404 NOT_FOUND（D），不承诺 DELETE 重复响应恒为 200。
 - 其他用户／不存在同样 404；无凭证 401；不提供恢复入口。
+
+### P08｜GET /me/posts
+
+- 依据 BR-47、DEC-062；权限 USER，仅查询当前凭证对应作者，不接受作者 ID 参数。
+- query `page`、`size` 按 2.3 通用类型、默认值和范围；不提供状态筛选，返回本人全部 PENDING、PUBLISHED、REJECTED 且未删除的作品。
+- 200 `Page<AdminPostItem>`：字段、必有性及可空性与 4.1 一致；包含当前稿正文和驳回原因，不含附件和个人互动状态，完整详情及附件按 P05 读取。
+- 按最近提交审核时间 `submittedAt DESC, id DESC` 排序；无记录或越界页返回空数组和实际总数。
+- 400 INVALID_PAGE／INVALID_REQUEST；401／403 按通用认证。不得返回其他作者的未公开稿或已删除作品。
+- 本接口为用户新增授权后的契约实施设计；不改变 P02 的 revision、资源数组或审核流转规则。
 
 ### 4.2 状态矩阵
 

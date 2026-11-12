@@ -17,6 +17,7 @@ type Props = {
   fileInfo: VideoFileInfo | null
   hashes: Record<string, string>
   selected: boolean
+  disabled?: boolean
   onChange: (
     video: VideoResource | null,
     selected: boolean,
@@ -40,6 +41,7 @@ export function VideoUpload({
   fileInfo,
   hashes,
   selected,
+  disabled = false,
   onChange,
 }: Props) {
   const [file, setFile] = useState<File | null>(null)
@@ -193,13 +195,19 @@ export function VideoUpload({
           MP4，最多 1 GiB、30 分钟；每篇作品最多一个视频。
         </p>
       </div>
+      {disabled && (
+        <p className="text-xs text-[#71897d]">请先移除已有附件，再添加视频。</p>
+      )}
       <Input
         ref={fileInput}
         id="post-video"
         type="file"
         accept="video/mp4,.mp4"
         disabled={
-          working || video?.state === "PROCESSING" || video?.state === "READY"
+          disabled ||
+          working ||
+          video?.state === "PROCESSING" ||
+          video?.state === "READY"
         }
         onChange={(event) => choose(event.target.files?.[0] ?? null)}
       />

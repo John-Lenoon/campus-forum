@@ -34,6 +34,23 @@
     OFFSET #{offset}
   </select>
 
+  <select id="countByAuthor" resultType="long">
+    SELECT COUNT(*) FROM forum_posts
+    WHERE author_id=#{authorId} AND deleted_at IS NULL
+  </select>
+
+  <select id="pageByAuthor" resultType="campus.entity.PostView">
+    SELECT p.*,u.nickname,u.avatar_resource_id,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='likes') AS like_count,
+    (SELECT COUNT(*) FROM forum_interactions i WHERE i.post_id=p.id AND i.kind='favorites') AS favorite_count
+    FROM forum_posts p
+    JOIN forum_users u ON u.id=p.author_id
+    WHERE p.author_id=#{authorId} AND p.deleted_at IS NULL
+    ORDER BY p.submitted_at DESC,p.id DESC
+    LIMIT #{size}
+    OFFSET #{offset}
+  </select>
+
   <update id="review">
     UPDATE forum_posts
     SET status=#{status},

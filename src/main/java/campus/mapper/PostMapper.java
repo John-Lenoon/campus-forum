@@ -24,6 +24,13 @@ public interface PostMapper extends BaseMapper<PostEntity> {
             @Param("size") int size,
             @Param("offset") long offset);
 
+    long countByAuthor(@Param("authorId") String authorId);
+
+    List<PostView> pageByAuthor(
+            @Param("authorId") String authorId,
+            @Param("size") int size,
+            @Param("offset") long offset);
+
     int review(
             @Param("status") String status,
             @Param("publishedAt") long publishedAt,

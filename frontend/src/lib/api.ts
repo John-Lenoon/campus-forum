@@ -54,6 +54,35 @@ export type Post = {
   likeCount: number
   favoriteCount: number
   attachments: Resource[]
+  liked?: boolean
+  favorited?: boolean
+  rejectionReason?: string | null
+}
+export type AuthorPost = Omit<Post, "attachments" | "liked" | "favorited"> & {
+  body: string
+  rejectionReason: string | null
+}
+export type Comment = {
+  id: string
+  postId: string
+  body: string
+  createdAt: number
+  rootId: string | null
+  replyToId: string | null
+  author: { id: string; nickname: string; avatarUrl: string }
+  replyTargetDeleted: boolean
+  replyTargetMessage?: string
+  replyCount?: number
+}
+export type CommentHistory = {
+  id: string
+  postId: string
+  body: string
+  createdAt: number
+  rootId: string | null
+  replyToId: string | null
+  deleted: boolean
+  message?: string
 }
 export type Page<T> = { items: T[]; total: number; page: number; size: number }
 
@@ -119,4 +148,30 @@ export async function uploadChunk(
     throw new ApiError(code)
   }
   return result as VideoResource
+}
+
+export async function uploadImage(
+  file: File,
+  purpose: "POST" | "AVATAR",
+  token: string
+): Promise<Resource> {
+  const form = new FormData()
+  form.set("file", file)
+  const response = await fetch(`/api/v1/resources/images?purpose=${purpose}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  })
+  const result: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const code =
+      result &&
+      typeof result === "object" &&
+      "code" in result &&
+      typeof result.code === "string"
+        ? result.code
+        : `HTTP_${response.status}`
+    throw new ApiError(code)
+  }
+  return result as Resource
 }

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { VideoPlayer } from "@/components/VideoPlayer"
+import { ResourceImage } from "@/components/ResourceImage"
 import { api, type Post } from "@/lib/api"
 
 export function ReviewMedia({ id, token }: { id: string; token: string }) {
@@ -45,10 +46,13 @@ export function ReviewMedia({ id, token }: { id: string; token: string }) {
         ))}
       {post?.attachments
         .filter((item) => item.type === "IMAGE")
-        .map((item) => (
-          <p key={item.id} className="text-sm text-[#71897d]">
-            图片附件暂不支持在此预览。
-          </p>
+        .map((item, index) => (
+          <ResourceImage
+            key={item.id}
+            url={item.url}
+            token={token}
+            alt={`作品图片 ${index + 1}`}
+          />
         ))}
     </div>
   )

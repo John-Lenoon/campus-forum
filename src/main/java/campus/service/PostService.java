@@ -158,6 +158,13 @@ public class PostService {
         return Map.of("items", items, "page", page, "size", size, "total", count);
     }
 
+    public Map<String, Object> listMine(CurrentUser user, int page, int size) {
+        if (page < 1 || size < 1 || size > 100) throw fail(400, "INVALID_PAGE");
+        var rows = postMapper.pageByAuthor(user.id(), size, ((long) page - 1) * size);
+        var items = rows.stream().map(this::view).toList();
+        return Map.of("items", items, "page", page, "size", size, "total", postMapper.countByAuthor(user.id()));
+    }
+
     @Transactional
     public Map<String, Object> review(
             String id, CurrentUser admin, Integer revision, String decision, String reason) {

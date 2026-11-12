@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react"
 import {
   ArrowLeft,
   ArrowRight,
   BookOpenText,
+  Bookmark,
   Check,
   Clock3,
   Heart,
@@ -22,6 +30,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { VideoUpload } from "@/components/VideoUpload"
 import { VideoPlayer } from "@/components/VideoPlayer"
 import { ReviewMedia } from "@/components/ReviewMedia"
+import { Profile } from "@/components/Profile"
+import { Comments } from "@/components/Comments"
+import { ImageUpload } from "@/components/ImageUpload"
+import { ResourceImage } from "@/components/ResourceImage"
 import {
   api,
   ApiError,
@@ -32,12 +44,48 @@ import {
   type Session,
   type VideoResource,
   type VideoFileInfo,
+  type User,
+  type Resource,
 } from "@/lib/api"
 
-type Screen = "feed" | "write" | "review"
+type Screen = "feed" | "write" | "review" | "profile"
 type Notice = { type: "error" | "success"; text: string }
 const pageSize = 6
 const sessionKey = "campus-forum-session"
+
+function currentLocation() {
+  const url = new URL(window.location.href)
+  const requestedPage = url.searchParams.get("page")
+  const parsedPage =
+    requestedPage && /^[1-9]\d*$/.test(requestedPage)
+      ? Number(requestedPage)
+      : 1
+  const match = /^\/posts\/([^/]+)\/?$/.exec(url.pathname)
+  let postId: string | null
+  try {
+    postId = match ? decodeURIComponent(match[1]) : null
+  } catch {
+    postId = null
+  }
+  return { page: Number.isSafeInteger(parsedPage) ? parsedPage : 1, postId }
+}
+
+function listUrl(page: number) {
+  return page === 1 ? "/" : `/?page=${page}`
+}
+
+function detailUrl(id: string, page: number) {
+  return `/posts/${encodeURIComponent(id)}${page === 1 ? "" : `?page=${page}`}`
+}
+
+function historyScroll(state: unknown) {
+  if (typeof state !== "object" || state === null || !("scrollY" in state))
+    return 0
+  const value = state.scrollY
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : 0
+}
 
 function loadSession(): Session | null {
   try {
@@ -89,13 +137,18 @@ function dateLabel(time: number | null) {
 }
 
 export default function App() {
+  const [initialLocation] = useState(currentLocation)
   const [session, setSession] = useState<Session | null>(loadSession)
   const [screen, setScreen] = useState<Screen>("feed")
   const [posts, setPosts] = useState<Page<Post> | null>(null)
   const [pending, setPending] = useState<Page<Post> | null>(null)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(initialLocation.page)
   const [reviewPage, setReviewPage] = useState(1)
   const [detail, setDetail] = useState<Post | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(
+    initialLocation.postId
+  )
+  const [detailError, setDetailError] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -113,24 +166,33 @@ export default function App() {
     restoredVideo?.hashes ?? {}
   )
   const [videoSelected, setVideoSelected] = useState(!!restoredVideo)
+  const [images, setImages] = useState<Resource[]>([])
+  const [imagePending, setImagePending] = useState(false)
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const [notice, setNotice] = useState<Notice | null>(null)
   const [busy, setBusy] = useState(false)
+  const [interactionBusy, setInteractionBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const feedRequest = useRef(0)
+  const pageRef = useRef(initialLocation.page)
+  const detailIdRef = useRef(initialLocation.postId)
+  const restoreScroll = useRef<{ page: number; top: number } | null>(null)
 
   const refreshFeed = useCallback(async (nextPage: number) => {
+    const request = ++feedRequest.current
     setLoading(true)
     try {
-      setPosts(
-        await api<Page<Post>>(`/posts?page=${nextPage}&size=${pageSize}`)
+      const result = await api<Page<Post>>(
+        `/posts?page=${nextPage}&size=${pageSize}`
       )
+      if (request === feedRequest.current) setPosts(result)
       return true
     } catch (error) {
-      setPosts(null)
-      setNotice({ type: "error", text: errorMessage(error) })
+      if (request === feedRequest.current)
+        setNotice({ type: "error", text: errorMessage(error) })
       return false
     } finally {
-      setLoading(false)
+      if (request === feedRequest.current) setLoading(false)
     }
   }, [])
   const refreshPending = useCallback(
@@ -153,16 +215,16 @@ export default function App() {
   )
   useEffect(() => {
     let active = true
+    const request = ++feedRequest.current
     api<Page<Post>>(`/posts?page=${page}&size=${pageSize}`).then(
       (result) => {
-        if (active) {
+        if (active && request === feedRequest.current) {
           setPosts(result)
           setLoading(false)
         }
       },
       (error) => {
-        if (active) {
-          setPosts(null)
+        if (active && request === feedRequest.current) {
           setLoading(false)
           setNotice({ type: "error", text: errorMessage(error) })
         }
@@ -172,6 +234,69 @@ export default function App() {
       active = false
     }
   }, [page])
+  useEffect(() => {
+    if (!detailId) return
+    let active = true
+    api<Post>(`/posts/${encodeURIComponent(detailId)}`, {
+      token: session?.token,
+    }).then(
+      (result) => {
+        if (active) setDetail(result)
+      },
+      (error) => {
+        if (active) {
+          setDetailError(true)
+          setNotice({ type: "error", text: errorMessage(error) })
+        }
+      }
+    )
+    return () => {
+      active = false
+    }
+  }, [detailId, session?.token])
+
+  useEffect(() => {
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = "manual"
+    function onPopState(event: PopStateEvent) {
+      const location = currentLocation()
+      if (pageRef.current !== location.page) {
+        feedRequest.current++
+        pageRef.current = location.page
+        setPage(location.page)
+      }
+      restoreScroll.current = location.postId
+        ? null
+        : { page: location.page, top: historyScroll(event.state) }
+      setScreen("feed")
+      if (detailIdRef.current !== location.postId) {
+        detailIdRef.current = location.postId
+        setDetail(null)
+        setDetailError(false)
+        setDetailId(location.postId)
+      }
+      setNotice(null)
+    }
+    window.addEventListener("popstate", onPopState)
+    return () => {
+      window.removeEventListener("popstate", onPopState)
+      window.history.scrollRestoration = previous
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const target = restoreScroll.current
+    if (
+      screen !== "feed" ||
+      detailId ||
+      !target ||
+      target.page !== page ||
+      posts?.page !== page
+    )
+      return
+    window.scrollTo({ top: target.top, behavior: "instant" })
+    restoreScroll.current = null
+  }, [screen, detailId, page, posts])
   useEffect(() => {
     if (screen !== "review" || session?.user.role !== "ADMIN") return
     let active = true
@@ -195,8 +320,48 @@ export default function App() {
   }, [screen, session, reviewPage])
 
   function navigate(next: Screen) {
+    if (detailId) {
+      window.history.pushState({ scrollY: 0 }, "", listUrl(page))
+      detailIdRef.current = null
+      setDetailId(null)
+    }
     setScreen(next)
     setDetail(null)
+    setDetailError(false)
+    setNotice(null)
+  }
+
+  function saveListPosition() {
+    const state = window.history.state
+    window.history.replaceState(
+      {
+        ...(state && typeof state === "object" ? state : {}),
+        scrollY: window.scrollY,
+      },
+      ""
+    )
+  }
+
+  function changePage(next: number) {
+    saveListPosition()
+    window.history.pushState({ scrollY: 0 }, "", listUrl(next))
+    restoreScroll.current = { page: next, top: 0 }
+    feedRequest.current++
+    pageRef.current = next
+    setPage(next)
+  }
+
+  function backToList() {
+    if (window.history.state?.fromList) {
+      window.history.back()
+      return
+    }
+    window.history.replaceState({ scrollY: 0 }, "", listUrl(page))
+    restoreScroll.current = { page, top: 0 }
+    detailIdRef.current = null
+    setDetailId(null)
+    setDetail(null)
+    setDetailError(false)
     setNotice(null)
   }
   function logout() {
@@ -208,7 +373,16 @@ export default function App() {
     setVideoSelected(false)
     setVideoFile(null)
     setVideoHashes({})
+    setImages([])
+    setImagePending(false)
     navigate("feed")
+  }
+
+  function updateUser(user: User) {
+    if (!session) return
+    const next = { ...session, user }
+    sessionStorage.setItem(sessionKey, JSON.stringify(next))
+    setSession(next)
   }
 
   const updateVideo = useCallback(
@@ -269,7 +443,15 @@ export default function App() {
           type: "success",
           text: `欢迎回来，${next.user.nickname}。`,
         })
-        if (next.user.role === "ADMIN") setScreen("review")
+        if (next.user.role === "ADMIN") {
+          if (detailId) {
+            window.history.replaceState({ scrollY: 0 }, "", listUrl(page))
+            detailIdRef.current = null
+            setDetailId(null)
+            setDetail(null)
+          }
+          setScreen("review")
+        }
       }
     } catch (error) {
       setNotice({ type: "error", text: errorMessage(error) })
@@ -286,6 +468,10 @@ export default function App() {
         type: "error",
         text: "请等待视频处理完成，或移除视频后再投稿。",
       })
+      return
+    }
+    if (imagePending) {
+      setNotice({ type: "error", text: "请先上传或取消选择图片。" })
       return
     }
     if (
@@ -306,7 +492,11 @@ export default function App() {
       await api<Post>("/posts", {
         method: "POST",
         token: session.token,
-        body: { title, body, resourceIds: video ? [video.id] : [] },
+        body: {
+          title,
+          body,
+          resourceIds: video ? [video.id] : images.map((image) => image.id),
+        },
       })
       setTitle("")
       setBody("")
@@ -314,8 +504,15 @@ export default function App() {
       setVideoSelected(false)
       setVideoFile(null)
       setVideoHashes({})
+      setImages([])
+      setImagePending(false)
       sessionStorage.removeItem(videoDraftKey(session.user.id))
       setScreen("feed")
+      if (pageRef.current !== 1) {
+        feedRequest.current++
+        pageRef.current = 1
+      }
+      window.history.replaceState({ scrollY: 0 }, "", listUrl(1))
       setPage(1)
       if (await refreshFeed(1))
         setNotice({
@@ -381,23 +578,58 @@ export default function App() {
     }
   }
 
-  async function openPost(id: string) {
-    setBusy(true)
+  function openPost(id: string) {
+    saveListPosition()
+    window.history.pushState({ fromList: true }, "", detailUrl(id, page))
+    restoreScroll.current = null
+    setDetail(null)
+    setDetailError(false)
+    detailIdRef.current = id
+    setDetailId(id)
+    setScreen("feed")
+    setNotice(null)
+    window.scrollTo({ top: 0, behavior: "instant" })
+  }
+
+  async function toggleInteraction(kind: "likes" | "favorites") {
+    if (
+      !session ||
+      session.user.role !== "USER" ||
+      !detail ||
+      detail.status !== "PUBLISHED"
+    )
+      return
+    const id = detail.id
+    const active = kind === "likes" ? detail.liked : detail.favorited
+    setInteractionBusy(true)
     setNotice(null)
     try {
-      setDetail(await api<Post>(`/posts/${id}`, { token: session?.token }))
+      await api(`/posts/${id}/${kind}`, {
+        method: active ? "DELETE" : "PUT",
+        token: session.token,
+      })
+      try {
+        const updated = await api<Post>(`/posts/${id}`, {
+          token: session.token,
+        })
+        setDetail((current) => (current?.id === id ? updated : current))
+      } catch {
+        setNotice({
+          type: "error",
+          text: "操作已完成，但状态刷新失败，请重新打开作品。",
+        })
+      }
     } catch (error) {
       setNotice({ type: "error", text: errorMessage(error) })
-      await refreshFeed(page)
     } finally {
-      setBusy(false)
+      setInteractionBusy(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-[#f4f6f5] text-[#172a29]">
       <header className="sticky top-0 z-20 border-b border-[#dce5e1] bg-[#fbfcfa]/95 backdrop-blur">
-        <div className="mx-auto flex h-17 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="mx-auto flex h-17 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-8">
           <button
             type="button"
             onClick={() => navigate("feed")}
@@ -407,7 +639,7 @@ export default function App() {
             <span className="grid size-9 place-items-center rounded-xl bg-[#1c5a4e] text-white">
               <BookOpenText className="size-5" />
             </span>
-            <span>
+            <span className="hidden sm:block">
               <span className="block text-base font-bold tracking-wide">
                 校园原创
               </span>
@@ -439,6 +671,19 @@ export default function App() {
                 }
               >
                 投稿
+              </Button>
+            )}
+            {session?.user.role === "USER" && (
+              <Button
+                variant="ghost"
+                onClick={() => navigate("profile")}
+                className={
+                  screen === "profile"
+                    ? "bg-[#e4eee8] text-[#1c5a4e]"
+                    : "text-[#627a70]"
+                }
+              >
+                个人中心
               </Button>
             )}
             {session?.user.role === "ADMIN" && (
@@ -485,7 +730,15 @@ export default function App() {
                 <AlertDescription>{notice.text}</AlertDescription>
               </Alert>
             )}
-            {screen === "feed" && !detail && (
+            {screen === "profile" && session?.user.role === "USER" && (
+              <Profile
+                key={session.user.id}
+                session={session}
+                onUserChange={updateUser}
+                onOpenPost={openPost}
+              />
+            )}
+            {screen === "feed" && !detailId && (
               <>
                 <div className="relative overflow-hidden rounded-3xl bg-[#dcebe1] px-7 py-9 sm:px-10 sm:py-11">
                   <div className="relative z-10 max-w-xl">
@@ -535,7 +788,7 @@ export default function App() {
                   </div>
                   <span className="text-xs text-[#839990]">按发布时间排序</span>
                 </div>
-                {loading ? (
+                {loading && !posts ? (
                   <p className="py-12 text-center text-sm text-[#7a8f86]">
                     正在加载作品…
                   </p>
@@ -554,7 +807,7 @@ export default function App() {
                         key={post.id}
                         type="button"
                         disabled={busy}
-                        onClick={() => void openPost(post.id)}
+                        onClick={() => openPost(post.id)}
                         className="group text-left"
                       >
                         <Card className="h-full border border-[#e2ebe5] bg-white shadow-none transition-colors hover:border-[#96bcaa]">
@@ -602,7 +855,7 @@ export default function App() {
                     <Button
                       variant="outline"
                       disabled={page === 1 || loading}
-                      onClick={() => setPage(page - 1)}
+                      onClick={() => changePage(page - 1)}
                     >
                       上一页
                     </Button>
@@ -612,7 +865,7 @@ export default function App() {
                     <Button
                       variant="outline"
                       disabled={page * pageSize >= posts.total || loading}
-                      onClick={() => setPage(page + 1)}
+                      onClick={() => changePage(page + 1)}
                     >
                       下一页
                     </Button>
@@ -620,12 +873,28 @@ export default function App() {
                 )}
               </>
             )}
-            {screen === "feed" && detail && (
+            {screen === "feed" &&
+              detailId &&
+              (!detail || detail.id !== detailId) && (
+                <div>
+                  <Button
+                    variant="ghost"
+                    className="mb-6 pl-0 text-[#55786a]"
+                    onClick={backToList}
+                  >
+                    <ArrowLeft /> 返回作品列表
+                  </Button>
+                  <p className="py-12 text-center text-sm text-[#7a8f86]">
+                    {detailError ? "作品无法查看。" : "正在加载作品…"}
+                  </p>
+                </div>
+              )}
+            {screen === "feed" && detailId && detail?.id === detailId && (
               <article>
                 <Button
                   variant="ghost"
                   className="mb-6 pl-0 text-[#55786a]"
-                  onClick={() => setDetail(null)}
+                  onClick={backToList}
                 >
                   <ArrowLeft /> 返回作品列表
                 </Button>
@@ -654,6 +923,20 @@ export default function App() {
                       {detail.body}
                     </div>
                     {detail.attachments
+                      .filter((item) => item.type === "IMAGE")
+                      .map((item, index) => (
+                        <ResourceImage
+                          key={item.id}
+                          url={item.url}
+                          token={
+                            detail.status === "PUBLISHED"
+                              ? undefined
+                              : session?.token
+                          }
+                          alt={`作品图片 ${index + 1}`}
+                        />
+                      ))}
+                    {detail.attachments
                       .filter((item) => item.type === "VIDEO")
                       .map((item) => (
                         <VideoPlayer
@@ -662,14 +945,61 @@ export default function App() {
                           token={session?.token}
                         />
                       ))}
-                    <div className="flex gap-5 border-t border-[#e8efea] pt-5 text-sm text-[#83978d]">
-                      <span className="flex items-center gap-1.5">
-                        <Heart className="size-4" /> {detail.likeCount} 点赞
-                      </span>
-                      <span>{detail.favoriteCount} 收藏</span>
+                    <div className="flex flex-wrap items-center gap-3 border-t border-[#e8efea] pt-5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-label={detail.liked ? "取消点赞" : "点赞"}
+                        disabled={
+                          interactionBusy ||
+                          session?.user.role !== "USER" ||
+                          detail.status !== "PUBLISHED"
+                        }
+                        onClick={() => void toggleInteraction("likes")}
+                        className={
+                          detail.liked
+                            ? "border-[#7db19c] text-[#1c6b58]"
+                            : "text-[#71897d]"
+                        }
+                      >
+                        <Heart className={detail.liked ? "fill-current" : ""} />{" "}
+                        点赞 {detail.likeCount}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-label={detail.favorited ? "取消收藏" : "收藏"}
+                        disabled={
+                          interactionBusy ||
+                          session?.user.role !== "USER" ||
+                          detail.status !== "PUBLISHED"
+                        }
+                        onClick={() => void toggleInteraction("favorites")}
+                        className={
+                          detail.favorited
+                            ? "border-[#7db19c] text-[#1c6b58]"
+                            : "text-[#71897d]"
+                        }
+                      >
+                        <Bookmark
+                          className={detail.favorited ? "fill-current" : ""}
+                        />{" "}
+                        收藏 {detail.favoriteCount}
+                      </Button>
+                      {!session && (
+                        <span className="text-xs text-[#71897d]">
+                          登录后可点赞和收藏
+                        </span>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
+                <Comments
+                  key={detail.id}
+                  postId={detail.id}
+                  status={detail.status}
+                  session={session}
+                />
               </article>
             )}
             {screen === "write" && session?.user.role === "USER" && (
@@ -714,12 +1044,21 @@ export default function App() {
                           {Array.from(body).length} / 10000
                         </p>
                       </div>
+                      <ImageUpload
+                        token={session.token}
+                        images={images}
+                        inputId="post-images"
+                        disabled={videoSelected}
+                        onChange={setImages}
+                        onPendingChange={setImagePending}
+                      />
                       <VideoUpload
                         token={session.token}
                         video={video}
                         fileInfo={videoFile}
                         hashes={videoHashes}
                         selected={videoSelected}
+                        disabled={images.length > 0 || imagePending}
                         onChange={updateVideo}
                       />
                       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#edf2ee] pt-5">
@@ -729,7 +1068,9 @@ export default function App() {
                         <Button
                           type="submit"
                           disabled={
-                            busy || (videoSelected && video?.state !== "READY")
+                            busy ||
+                            imagePending ||
+                            (videoSelected && video?.state !== "READY")
                           }
                           className="h-10 bg-[#1c5a4e] px-5 text-white hover:bg-[#16493f]"
                         >

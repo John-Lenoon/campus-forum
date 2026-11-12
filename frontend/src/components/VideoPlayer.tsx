@@ -3,7 +3,43 @@ import Hls from "hls.js"
 
 export function VideoPlayer({ url, token }: { url: string; token?: string }) {
   const ref = useRef<HTMLVideoElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    const video = ref.current
+    const container = containerRef.current
+    if (!video || !container) return
+
+    let inlineHeight = video.getBoundingClientRect().height
+    const observer = new ResizeObserver(() => {
+      if (document.fullscreenElement !== video) {
+        inlineHeight = video.getBoundingClientRect().height
+      }
+    })
+    observer.observe(video)
+
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement === video) {
+        // Keep the inline space while the video is in the fullscreen top layer.
+        // Position the page behind it, before the user exits fullscreen.
+        container.style.height = `${inlineHeight}px`
+        const { bottom } = container.getBoundingClientRect()
+        if (bottom > window.innerHeight || bottom < 80) {
+          container.scrollIntoView({ block: "end", behavior: "instant" })
+        }
+      } else {
+        container.style.height = ""
+      }
+    }
+
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange)
+      observer.disconnect()
+      container.style.height = ""
+    }
+  }, [])
 
   useEffect(() => {
     const video = ref.current
@@ -53,14 +89,16 @@ export function VideoPlayer({ url, token }: { url: string; token?: string }) {
 
   return (
     <div className="mt-4 space-y-2">
-      <video
-        ref={ref}
-        controls
-        playsInline
-        preload="metadata"
-        className="w-full rounded-xl bg-black"
-        aria-label="视频播放"
-      />
+      <div ref={containerRef}>
+        <video
+          ref={ref}
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full rounded-xl bg-black"
+          aria-label="视频播放"
+        />
+      </div>
       {error && (
         <p role="alert" className="text-sm text-red-700">
           {error}

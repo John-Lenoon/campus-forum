@@ -86,6 +86,14 @@ public class PostController {
         return posts.list(true, status, page, size);
     }
 
+    @GetMapping("/me/posts")
+    Map<String, Object> mine(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return posts.listMine(sessions.require(auth, "USER"), page, size);
+    }
+
     @PostMapping("/admin/posts/{id}/review")
     Map<String, Object> review(
             @PathVariable String id,
